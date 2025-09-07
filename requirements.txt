@@ -1,0 +1,16 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-dotenv==1.0.0
+openai==1.3.5
+anthropic==0.7.7
+# Pydantic 2.5.0 lacks ready wheels for Python 3.13; upgrade to a wheel-supported version
+pydantic==2.10.3
+httpx==0.25.1
+python-multipart==0.0.6
+# 'cors' package is not required for FastAPI CORS middleware; removing to avoid gevent build
+firebase-admin==6.2.0
+redis==5.0.1
+celery==5.3.4
+beautifulsoup4==4.12.2
+# lxml 4.x has no wheels for Python 3.13; upgrade to 5.x which provides prebuilt wheels
+lxml==5.3.0
