@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Users: each user can read their own profile; write only their own doc
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    // Journal entries: created by a user; readable & writable by owner
+    // Structure used by the app: journalEntries/{entryId} with userId field
+    match /journalEntries/{entryId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Highlighted verses: owner can read/write; optional public sharing via isPublic flag
+    // Structure: highlightedVerses/{id} with { userId, reference, text, isPublic }
+    match /highlightedVerses/{verseId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read: if (isSignedIn() && resource.data.userId == request.auth.uid) || (resource.data.isPublic == true);
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // Friendships: each record contains { userId, friendId, status }
+    // A user may read/write friendship docs where they are subject
+    match /friendships/{friendshipId} {
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.friendId == request.auth.uid);
+    }
+
+    // Conversations (optional future): nested messages are owner-only
+    match /conversations/{convId} {
+      allow read, write: if false; // locked by default until implemented
+      match /messages/{messageId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Deny all others explicitly
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
