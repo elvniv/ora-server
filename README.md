@@ -26,12 +26,15 @@ pip install -r requirements.txt
 ### 2. Set Up Environment Variables
 
 ```bash
-# Copy the example file
-cp .env.example .env
-
-# Edit .env and add your API keys:
-OPENAI_API_KEY=sk-your-key-here
-ANTHROPIC_API_KEY=sk-ant-your-key-here  # Optional
+# Create .env and add your keys (do not commit this file)
+cat > .env <<'ENV' 
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+# optional
+ANTHROPIC_API_KEY=
+CLAUDE_MODEL=claude-3-sonnet-20240229
+DEBUG=true
+ENV
 ```
 
 ### 3. Run the Server

@@ -6,6 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from datetime import datetime
 
+# Load environment variables FIRST
+load_dotenv(override=False)
+
 from models import (
     ChatMessage, ChatResponse, VerseRequest, VerseContext, SearchVersesRequest
 )
@@ -13,8 +16,6 @@ from services.bible_service import KJVBibleService
 from services.ai_service import SpiritualAIService
 from config import get_settings
 
-# Load environment variables
-load_dotenv(override=False)
 settings = get_settings()
 
 # Initialize FastAPI app
