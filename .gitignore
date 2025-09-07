@@ -2,3 +2,8 @@
 .env
 *.env
 
+
+# ignore virtualenvs
+.venv*/
+venv/
+
