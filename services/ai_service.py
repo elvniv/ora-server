@@ -25,34 +25,49 @@ class SpiritualAIService:
     
     def _create_system_prompt(self) -> str:
         """Create the system prompt for AI interactions"""
-        return """You are ORA, a gentle spiritual guide who helps people explore their faith through reflective journaling and devotional conversation.
+        return """You are ORA, a spiritual companion who guides people through thoughtful questions rather than giving answers.
 
-Your approach:
-- Act as a compassionate journaling companion, not a problem-solver
-- Use lowercase for a warm, approachable tone
-- Guide users to discover their own insights through reflection
-- Help them connect with God's word personally
-- Focus on their spiritual journey, not fixing their problems
+Core Philosophy:
+- Ask, don't tell. Questions lead to deeper faith than answers.
+- Help people discover God's voice for themselves
+- Be a gentle guide, not a teacher or advisor
+- Create space for reflection, not dependency
 
-Conversation style:
-- ALWAYS respond with thoughtful, open-ended questions that encourage deeper reflection
-- Keep responses brief (1-2 sentences) followed by a reflective question
-- Never give direct advice or solutions
-- Instead of answering problems, ask "What do you think God might be showing you?"
-- Help them explore their feelings and faith connection
-- Guide them to journal their thoughts and prayers
+Response Style:
+- Use lowercase for warmth and approachability
+- Keep responses to 1-2 sentences maximum
+- END EVERY response with a reflective question
+- Ask about feelings, not just thoughts
+- Focus on their relationship with God, not circumstances
 
-Examples of good responses:
-- "that sounds really challenging. what emotions are coming up for you as you sit with this?"
-- "i hear your heart in this. how might God be present with you in this moment?"
-- "thank you for sharing that. what would it look like to bring this to God in prayer?"
+Instead of saying "God loves you," ask:
+"how do you sense God's love in your life right now?"
 
-Remember:
-- You're facilitating their personal devotion time
-- Help them listen to God, not rely on you
-- Every response should invite deeper reflection
-- Encourage journaling and prayer
-- Verses will be provided separately - focus on the heart conversation"""
+Instead of "pray about it," ask:
+"what would you want to say to God about this?"
+
+Instead of "trust God," ask:
+"where do you see God's faithfulness in your story?"
+
+Question Types to Use:
+- Emotional: "what feelings are stirring in your heart?"
+- Spiritual: "how is God moving in this situation?"
+- Reflective: "what is your heart telling you?"
+- Devotional: "what would you write in your journal about this?"
+- Prayerful: "how might you bring this before God?"
+
+Never:
+- Give direct advice or solutions
+- Quote scripture (verses provided separately)
+- Make definitive spiritual statements
+- Tell them what God wants
+- Solve their problems
+
+Always:
+- Ask questions that deepen their faith
+- Invite them to listen for God's voice
+- Encourage personal reflection and journaling
+- Help them process emotions spiritually"""
     
     async def generate_response(self, message: ChatMessage) -> ChatResponse:
         """Generate AI response with verse recommendation"""
@@ -220,43 +235,53 @@ Remember:
         return None
     
     def _generate_follow_up_question(self, user_message: str) -> str:
-        """Generate a thoughtful follow-up question for journaling"""
-        questions = [
-            "what is your heart telling you about this?",
-            "how do you sense God's presence in this situation?",
-            "what would you want to write in your prayer journal about this?",
-            "if you sat quietly with God about this, what might you hear?",
-            "what scripture has spoken to you in similar times?",
-            "how is the Holy Spirit stirring in your heart right now?",
-            "what would it look like to surrender this to God?",
-            "where do you see God's faithfulness in your story?",
-            "what truth about God's character comes to mind?",
-            "how might this be shaping your faith journey?"
-        ]
+        """Generate a thoughtful follow-up question for deeper reflection"""
+        lower = user_message.lower()
+        
+        # Contextual questions based on what they shared
+        if any(word in lower for word in ["struggle", "hard", "difficult", "challenging"]):
+            questions = [
+                "what emotions are you sitting with right now?",
+                "how might God be present with you in this struggle?",
+                "what would it look like to bring this honestly before God?",
+                "where have you seen God's strength in difficult times before?"
+            ]
+        elif any(word in lower for word in ["grateful", "thankful", "blessed", "good"]):
+            questions = [
+                "how does this goodness reflect God's heart to you?",
+                "what prayer of gratitude is stirring in you?",
+                "how might you carry this gratitude into tomorrow?",
+                "what does this reveal about God's faithfulness?"
+            ]
+        elif any(word in lower for word in ["confused", "unsure", "don't know", "uncertain"]):
+            questions = [
+                "what would it look like to sit in this uncertainty with God?",
+                "what is your heart longing for in this season?",
+                "how might you listen for God's gentle voice?",
+                "what would you want to ask God about this?"
+            ]
+        else:
+            # General reflective questions
+            questions = [
+                "what is stirring in your heart as you share this?",
+                "how do you sense God moving in this moment?",
+                "what would you want to journal about this?",
+                "if you prayed about this right now, what would you say?",
+                "what is your soul telling you?",
+                "how might God be inviting you deeper?"
+            ]
+        
         return random.choice(questions)
 
     def _generate_quick_replies(self, user_message: str) -> List[str]:
-        """Provide quick reply suggestions to keep conversation going"""
-        lower = user_message.lower()
-        
-        if any(w in lower for w in ["anxious", "worry", "overwhelmed", "stressed"]):
-            return [
-                "can you share one specific worry?",
-                "could you give me a verse for anxiety?",
-                "how might i practice trust today?"
-            ]
-        elif any(w in lower for w in ["tired", "weak", "exhausted", "strength"]):
-            return [
-                "i'm feeling worn out",
-                "do you have a verse about strength?",
-                "what's one small step i can take?"
-            ]
-        else:
-            return [
-                "can you help me reflect on this?",
-                "what's a good next step?",
-                "could you share a verse for this?"
-            ]
+        """Provide quick reply suggestions that encourage deeper sharing"""
+        return [
+            "tell me more about how you're feeling",
+            "what's really on your heart?",
+            "help me understand what you're experiencing",
+            "i want to process this with you",
+            "let's explore this together"
+        ]
 
     async def _get_additional_verses(self, user_message: str, primary_verse: Optional[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
         """Get 2-3 additional related verses"""
@@ -314,33 +339,15 @@ Remember:
         ]
     
     def _generate_journal_prompts(self, user_message: str, verse_rec: Optional[Dict[str, Any]]) -> List[str]:
-        """Create journaling prompts tied to the theme/verse"""
-        lower = user_message.lower()
-        verse_ref = verse_rec.get("verse_reference") if verse_rec else None
-
-        if any(w in lower for w in ["anxious", "worry", "overwhelmed", "stressed"]):
-            prompts = [
-                "what's the specific fear beneath your worry today?",
-                "if you released this to God, what would change?",
-                "who could support you in this right now?"
-            ]
-        elif any(w in lower for w in ["love", "relationship", "lonely"]):
-            prompts = [
-                "where do you need to receive love today?",
-                "what would it look like to love someone practically this week?",
-                "what keeps you from asking for help?"
-            ]
-        else:
-            prompts = [
-                "what's one area you'd like to grow in this week?",
-                "what might God be inviting you to notice today?",
-                "what's a prayer you can keep returning to?"
-            ]
-
-        # Tie to verse if present
-        if verse_ref:
-            prompts[0] = f"in light of {verse_ref}, {prompts[0]}"
-            
-        return prompts
+        """Create journaling prompts that encourage personal reflection"""
+        base_prompts = [
+            "what is God showing me through this experience?",
+            "how am I being invited to grow in this season?",
+            "what would I want to say to God about this?",
+            "where do I see God's presence in my story right now?",
+            "what is my heart truly longing for?"
+        ]
+        
+        return random.sample(base_prompts, min(3, len(base_prompts)))
     
     # Removed fallback response - we want real AI responses only
