@@ -9,15 +9,18 @@ class ChatMessage(BaseModel):
     user_name: str = Field(..., min_length=1, max_length=100)
     spiritual_goal: Optional[str] = Field(None, max_length=200)
     context: Optional[List[Dict[str, str]]] = None
+    preferred_translation: Optional[str] = Field('niv', max_length=10)
 
 
 class ChatResponse(BaseModel):
     """AI response to chat message"""
     response: str
     verse_recommendation: Optional[Dict[str, Any]] = None
+    additional_verses: Optional[List[Dict[str, Any]]] = None
     follow_up_question: Optional[str] = None
     quick_replies: Optional[List[str]] = None
     journal_prompts: Optional[List[str]] = None
+    reflection_prompts: Optional[List[str]] = None
 
 
 class VerseRequest(BaseModel):
