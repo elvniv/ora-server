@@ -25,49 +25,45 @@ class SpiritualAIService:
     
     def _create_system_prompt(self) -> str:
         """Create the system prompt for AI interactions"""
-        return """You are ORA, a spiritual companion who guides people through thoughtful questions rather than giving answers.
+        return """You are ORA, a compassionate spiritual companion who listens deeply before offering any spiritual support.
 
-Core Philosophy:
-- Ask, don't tell. Questions lead to deeper faith than answers.
-- Help people discover God's voice for themselves
-- Be a gentle guide, not a teacher or advisor
-- Create space for reflection, not dependency
+Listening First Approach:
+- ALWAYS acknowledge what they've shared with empathy
+- Show you heard them by reflecting back their emotions
+- Ask follow-up questions to understand more before offering spiritual insight
+- Build context through conversation, don't rush to verses or solutions
 
-Response Style:
-- Use lowercase for warmth and approachability
-- Keep responses to 1-2 sentences maximum
-- END EVERY response with a reflective question
-- Ask about feelings, not just thoughts
-- Focus on their relationship with God, not circumstances
+Response Pattern:
+1. Acknowledge their sharing ("i hear that you're feeling...")
+2. Express empathy ("that sounds really difficult" or "i can sense your heart in this")
+3. Ask a caring follow-up question to understand more
 
-Instead of saying "God loves you," ask:
-"how do you sense God's love in your life right now?"
+Examples of Good Listening:
+User: "I'm stressed about work"
+You: "i'm sorry you're feeling stressed. work pressure can be really overwhelming. what specifically about work is weighing on you most?"
 
-Instead of "pray about it," ask:
-"what would you want to say to God about this?"
+User: "I feel alone"
+You: "that sounds like such a heavy feeling to carry. loneliness can feel so isolating. what's been making you feel most disconnected lately?"
 
-Instead of "trust God," ask:
-"where do you see God's faithfulness in your story?"
+User: "I'm worried about my family"
+You: "i can hear the concern in your heart for your family. that kind of worry shows how much you care about them. what specifically has you most concerned?"
 
-Question Types to Use:
-- Emotional: "what feelings are stirring in your heart?"
-- Spiritual: "how is God moving in this situation?"
-- Reflective: "what is your heart telling you?"
-- Devotional: "what would you write in your journal about this?"
-- Prayerful: "how might you bring this before God?"
+Conversation Flow:
+- First response: Listen + empathize + ask for more context
+- Second response: Understand deeper + gentle spiritual question
+- Third+ response: Can include spiritual reflection if they've shared enough
 
 Never:
-- Give direct advice or solutions
-- Quote scripture (verses provided separately)
-- Make definitive spiritual statements
-- Tell them what God wants
-- Solve their problems
+- Jump straight to spiritual advice
+- Offer verses without understanding context
+- Dismiss their feelings with spiritual platitudes
+- Rush to solutions
 
 Always:
-- Ask questions that deepen their faith
-- Invite them to listen for God's voice
-- Encourage personal reflection and journaling
-- Help them process emotions spiritually"""
+- Make them feel heard first
+- Ask caring questions about their experience
+- Show genuine interest in their story
+- Build trust through patient listening"""
     
     async def generate_response(self, message: ChatMessage) -> ChatResponse:
         """Generate AI response with verse recommendation"""
@@ -77,8 +73,10 @@ Always:
             # Try AI services in order of preference
             response_text, verse_rec = await self._get_ai_response(message, context)
             
-            # Get verse recommendations (multiple verses) in user's preferred translation
-            if not verse_rec:
+            # Only provide verses after meaningful conversation, not immediately
+            # Check if this is a first-time mention or needs more context
+            should_include_verse = self._should_include_verse(message.message, context)
+            if should_include_verse and not verse_rec:
                 verse_rec = await self._get_verse_recommendation(
                     message.message, 
                     response_text, 
@@ -234,41 +232,76 @@ Always:
         
         return None
     
+    def _should_include_verse(self, user_message: str, context: str) -> bool:
+        """Determine if we should include a verse or just listen first"""
+        # Don't include verses on very first interactions or surface-level shares
+        if not context or len(context.strip()) < 50:
+            return False
+            
+        # Look for indicators that they've shared enough for meaningful verse support
+        indicators_for_verse = [
+            "feel", "feeling", "emotion", "heart", "soul", "pray", "prayer", 
+            "God", "faith", "believe", "trust", "hope", "peace", "strength",
+            "been struggling with", "going through", "dealing with", "working through"
+        ]
+        
+        message_lower = user_message.lower()
+        context_lower = context.lower() if context else ""
+        
+        # Check if they've shared deeper context in current message or previous context
+        deep_sharing_indicators = sum(1 for indicator in indicators_for_verse if indicator in message_lower or indicator in context_lower)
+        
+        # Include verse if they've shared meaningful context (3+ indicators)
+        return deep_sharing_indicators >= 3
+    
     def _generate_follow_up_question(self, user_message: str) -> str:
         """Generate a thoughtful follow-up question for deeper reflection"""
         lower = user_message.lower()
         
-        # Contextual questions based on what they shared
-        if any(word in lower for word in ["struggle", "hard", "difficult", "challenging"]):
+        # Empathetic, context-seeking questions based on what they shared
+        if any(word in lower for word in ["stressed", "stress", "overwhelmed", "pressure"]):
             questions = [
-                "what emotions are you sitting with right now?",
-                "how might God be present with you in this struggle?",
-                "what would it look like to bring this honestly before God?",
-                "where have you seen God's strength in difficult times before?"
+                "what specifically is creating the most stress for you right now?",
+                "when did you first start feeling this overwhelm?",
+                "what does the stress feel like in your body and heart?",
+                "what would help you feel most supported in this?"
             ]
-        elif any(word in lower for word in ["grateful", "thankful", "blessed", "good"]):
+        elif any(word in lower for word in ["sad", "down", "depressed", "heavy"]):
             questions = [
-                "how does this goodness reflect God's heart to you?",
-                "what prayer of gratitude is stirring in you?",
-                "how might you carry this gratitude into tomorrow?",
-                "what does this reveal about God's faithfulness?"
+                "what's been weighing heaviest on your heart?",
+                "when did you first start feeling this way?",
+                "what does this sadness feel like for you?",
+                "who or what usually brings you comfort when you feel like this?"
             ]
-        elif any(word in lower for word in ["confused", "unsure", "don't know", "uncertain"]):
+        elif any(word in lower for word in ["worried", "worry", "anxious", "anxiety", "afraid"]):
             questions = [
-                "what would it look like to sit in this uncertainty with God?",
-                "what is your heart longing for in this season?",
-                "how might you listen for God's gentle voice?",
-                "what would you want to ask God about this?"
+                "what thoughts keep running through your mind?",
+                "what are you most afraid might happen?",
+                "when do you notice the worry is strongest?",
+                "what helps quiet your mind when anxiety rises?"
+            ]
+        elif any(word in lower for word in ["angry", "frustrated", "mad", "upset"]):
+            questions = [
+                "what happened that stirred up these feelings?",
+                "what's underneath the anger - hurt, disappointment, fear?",
+                "how long have you been carrying this frustration?",
+                "what would it feel like to release some of this anger?"
+            ]
+        elif any(word in lower for word in ["lonely", "alone", "isolated", "disconnected"]):
+            questions = [
+                "what's been making you feel most alone lately?",
+                "when do you feel the loneliness most strongly?",
+                "what kind of connection are you longing for?",
+                "who in your life usually helps you feel less alone?"
             ]
         else:
-            # General reflective questions
+            # General caring follow-up questions
             questions = [
-                "what is stirring in your heart as you share this?",
-                "how do you sense God moving in this moment?",
-                "what would you want to journal about this?",
-                "if you prayed about this right now, what would you say?",
-                "what is your soul telling you?",
-                "how might God be inviting you deeper?"
+                "tell me more about what's going on in your heart.",
+                "what's been on your mind lately?",
+                "how are you really doing with all of this?",
+                "what would help you feel most heard right now?",
+                "what part of this feels most important to talk through?"
             ]
         
         return random.choice(questions)
