@@ -25,50 +25,66 @@ class SpiritualAIService:
     
     def _create_system_prompt(self) -> str:
         """Create the system prompt for AI interactions"""
-        return """You are ORA, a compassionate spiritual companion who listens deeply before offering any spiritual support.
+        return """You are ORA, a compassionate spiritual companion who meets people where they are.
 
-Listening First Approach:
-- ALWAYS acknowledge what they've shared with empathy
-- Show you heard them by reflecting back their emotions
-- Ask follow-up questions to understand more before offering spiritual insight
-- Build context through conversation, don't rush to verses or solutions
+CRITICAL: Match their energy and input length
+- If they write 1-2 words: Respond with 1-2 sentences, gentle and brief
+- If they write a few sentences: Match with similar length, warm and supportive  
+- If they write paragraphs: Respond with fuller thoughts, deeper engagement
+- Mirror their emotional energy - if quiet/low, be gentle; if expressive, be more engaged
+
+Response Style:
+- ALWAYS acknowledge their feelings with empathy first
+- Match their communication style and energy level
+- Provide spiritual insight appropriate to their sharing depth
+- Keep responses warm, conversational, and supportive
+- Never use emojis in your responses
 
 Response Pattern:
-1. Acknowledge their sharing ("i hear that you're feeling...")
-2. Express empathy ("that sounds really difficult" or "i can sense your heart in this")
-3. Ask a caring follow-up question to understand more
+1. Acknowledge their sharing (match their energy level)
+2. Express empathy (brief for short messages, fuller for longer ones)
+3. Offer spiritual perspective appropriate to their sharing depth
+4. Ask MAX 1-2 follow-ups total before providing verses
 
-Examples of Good Listening:
-User: "I'm stressed about work"
-You: "i'm sorry you're feeling stressed. work pressure can be really overwhelming. what specifically about work is weighing on you most?"
+Examples by Length:
+Short input - User: "stressed"
+You: "i hear that stress. you're not carrying it alone."
 
-User: "I feel alone"
-You: "that sounds like such a heavy feeling to carry. loneliness can feel so isolating. what's been making you feel most disconnected lately?"
+Medium input - User: "I'm really stressed about work lately"  
+You: "i'm sorry work has been weighing on you. that kind of pressure can feel overwhelming. remember there's peace available even in busy seasons."
 
-User: "I'm worried about my family"
-You: "i can hear the concern in your heart for your family. that kind of worry shows how much you care about them. what specifically has you most concerned?"
+Long input - User: "I've been so stressed about work lately. My boss keeps piling on more projects and I feel like I can't keep up. I'm worried I'm going to disappoint everyone and maybe even lose my job. It's affecting my sleep and I just feel anxious all the time."
+You: "i can really hear how overwhelmed you're feeling right now. work pressure like that - with the fear of disappointing people and job security concerns - that's so much to carry. it makes complete sense that it's affecting your sleep and creating anxiety. you don't have to bear this weight alone. even when everything feels uncertain, there's a peace that can anchor you through these storms."
+
+Verse Recommendations:
+- After 1-2 exchanges, recommend a relevant verse
+- ALWAYS explain WHY you chose that specific verse for their situation
+- Connect the verse directly to what they've shared
 
 Conversation Flow:
-- First response: Listen + empathize + ask for more context
-- Second response: Understand deeper + gentle spiritual question
-- Third+ response: Can include spiritual reflection if they've shared enough
+- First response: Match their energy + acknowledge + empathize
+- Second response: Gentle wisdom + possible follow-up  
+- Third response: Verse + explanation of why it fits their situation
 
 Never:
-- Jump straight to spiritual advice
-- Offer verses without understanding context
-- Dismiss their feelings with spiritual platitudes
-- Rush to solutions
+- Use emojis or special characters
+- Ask excessive questions 
+- Overwhelm them with length if they're brief
+- Under-respond if they've shared deeply
 
 Always:
-- Make them feel heard first
-- Ask caring questions about their experience
-- Show genuine interest in their story
-- Build trust through patient listening"""
+- Match their energy and length
+- Meet them where they are emotionally
+- Explain verse choices clearly"""
     
     async def generate_response(self, message: ChatMessage) -> ChatResponse:
         """Generate AI response with verse recommendation"""
         try:
             context = self._build_conversation_context(message)
+            
+            # Analyze user input to match energy and length
+            input_analysis = self._analyze_user_input(message.message)
+            context += f"\nUser input analysis: {input_analysis}\n"
             
             # Try AI services in order of preference
             response_text, verse_rec = await self._get_ai_response(message, context)
@@ -113,6 +129,44 @@ Always:
         if message.spiritual_goal:
             context += f"Spiritual goal: {message.spiritual_goal}\n"
         return context
+    
+    def _analyze_user_input(self, user_message: str) -> str:
+        """Analyze user input length and energy to guide response matching"""
+        message_length = len(user_message.strip())
+        word_count = len(user_message.strip().split())
+        
+        # Analyze length category
+        if word_count <= 3:
+            length_category = "very short (1-3 words)"
+            response_guidance = "Respond with 1-2 brief, gentle sentences"
+        elif word_count <= 10:
+            length_category = "short (4-10 words)"
+            response_guidance = "Respond with 2-3 supportive sentences"
+        elif word_count <= 30:
+            length_category = "medium (11-30 words)"
+            response_guidance = "Respond with 3-4 sentences, matching their depth"
+        else:
+            length_category = "long (30+ words)"
+            response_guidance = "Respond with fuller engagement, deeper thoughts"
+        
+        # Analyze emotional energy
+        energy_indicators = {
+            "high": ["!", "really", "so", "very", "extremely", "absolutely", "totally"],
+            "urgent": ["help", "need", "can't", "won't", "never", "always", "everything", "nothing"],
+            "low": [".", "i guess", "maybe", "i don't know", "whatever", "tired", "exhausted"]
+        }
+        
+        message_lower = user_message.lower()
+        energy_level = "neutral"
+        
+        if sum(1 for word in energy_indicators["high"] if word in message_lower) >= 2:
+            energy_level = "high energy - match with engaged, warm response"
+        elif any(word in message_lower for word in energy_indicators["urgent"]):
+            energy_level = "urgent/stressed - respond with calm, reassuring tone"
+        elif any(word in message_lower for word in energy_indicators["low"]):
+            energy_level = "low energy - respond gently, don't overwhelm"
+        
+        return f"{length_category} - {response_guidance}. Energy: {energy_level}"
     
     async def _get_ai_response(self, message: ChatMessage, context: str) -> Tuple[str, Optional[Dict]]:
         """Get AI response from available services"""
@@ -187,17 +241,59 @@ Always:
         return None
     
     async def _get_verse_recommendation(self, user_message: str, ai_response: str, translation: str = 'niv') -> Optional[Dict[str, Any]]:
-        """Get a relevant verse recommendation based on conversation in user's preferred translation"""
+        """Get a relevant verse recommendation with explanation based on conversation"""
         combined_text = f"{user_message} {ai_response}".lower()
         
-        # Map themes to verse references
-        theme_verse_refs = {
-            "anxiety": ["Philippians 4:6-7", "1 Peter 5:7", "Matthew 6:34"],
-            "love": ["1 Corinthians 13:4-7", "1 John 4:19", "John 13:34"],
-            "strength": ["Isaiah 40:31", "Philippians 4:13", "2 Timothy 1:7"],
-            "peace": ["John 14:27", "Isaiah 26:3", "Philippians 4:7"],
-            "patience": ["James 1:3-4", "Romans 12:12", "Galatians 6:9"],
-            "faith": ["Hebrews 11:1", "2 Corinthians 5:7", "Mark 11:24"]
+        # Map themes to verse references with explanations
+        theme_verse_data = {
+            "anxiety": {
+                "verses": ["Philippians 4:6-7", "1 Peter 5:7", "Matthew 6:34"],
+                "explanations": {
+                    "Philippians 4:6-7": "i chose this verse because it directly addresses anxiety and worry. when you're feeling stressed, paul reminds us we can bring everything to god in prayer instead of carrying it alone.",
+                    "1 Peter 5:7": "this verse is perfect for your situation because it reminds us that god actually cares about what's weighing on you. you can literally cast your worries on him.",
+                    "Matthew 6:34": "jesus spoke these words knowing how overwhelming worry can be. this verse helps us focus on today instead of getting consumed by tomorrow's unknowns."
+                }
+            },
+            "love": {
+                "verses": ["1 Corinthians 13:4-7", "1 John 4:19", "John 13:34"],
+                "explanations": {
+                    "1 Corinthians 13:4-7": "i chose this because it beautifully describes what love looks like in action. when relationships feel hard, this reminds us what love truly is.",
+                    "1 John 4:19": "this verse is perfect because it reminds us that all our ability to love comes from being loved by god first. it takes the pressure off.",
+                    "John 13:34": "jesus gave us this command knowing how much we need love and connection. it's a reminder that loving others is central to following him."
+                }
+            },
+            "strength": {
+                "verses": ["Isaiah 40:31", "Philippians 4:13", "2 Timothy 1:7"],
+                "explanations": {
+                    "Isaiah 40:31": "when you're feeling weak or exhausted, this verse promises that god renews your strength. even eagles get tired, but god doesn't.",
+                    "Philippians 4:13": "i chose this because paul wrote it during his own difficult circumstances. it's a reminder that christ's strength works through us when we feel insufficient.",
+                    "2 Timothy 1:7": "this verse speaks directly to times when we feel powerless. god has given you a spirit of power, love, and sound mind - not fear or weakness."
+                }
+            },
+            "peace": {
+                "verses": ["John 14:27", "Isaiah 26:3", "Philippians 4:7"],
+                "explanations": {
+                    "John 14:27": "jesus spoke these words knowing his disciples would face troubled times. his peace is different from temporary calm - it's lasting.",
+                    "Isaiah 26:3": "this verse is perfect because it connects peace with trusting god. when your mind is stayed on him, perfect peace follows.",
+                    "Philippians 4:7": "this peace surpasses understanding - it doesn't depend on circumstances making sense. it guards your heart and mind."
+                }
+            },
+            "patience": {
+                "verses": ["James 1:3-4", "Romans 12:12", "Galatians 6:9"],
+                "explanations": {
+                    "James 1:3-4": "when waiting feels hard, james reminds us that testing produces patience, and patience produces completeness. there's purpose in the process.",
+                    "Romans 12:12": "this verse is perfect for difficult seasons - it connects patience with hope and prayer. all three work together.",
+                    "Galatians 6:9": "when you're tempted to give up, paul reminds us not to grow weary. the right season will come."
+                }
+            },
+            "faith": {
+                "verses": ["Hebrews 11:1", "2 Corinthians 5:7", "Mark 11:24"],
+                "explanations": {
+                    "Hebrews 11:1": "this verse beautifully defines what faith actually is - confidence in what we hope for even when we can't see it yet.",
+                    "2 Corinthians 5:7": "when everything feels uncertain, this reminds us that walking by faith rather than sight is actually the normal christian life.",
+                    "Mark 11:24": "jesus connects faith with prayer here. when we pray believing, we can trust god to work even before we see the results."
+                }
+            }
         }
         
         theme_keywords = [
@@ -215,9 +311,9 @@ Always:
                 selected_theme = theme
                 break
         
-        # Get a random verse reference from the theme
-        verse_refs = theme_verse_refs.get(selected_theme, theme_verse_refs["faith"])
-        selected_ref = random.choice(verse_refs)
+        # Get verse data for the theme
+        theme_data = theme_verse_data.get(selected_theme, theme_verse_data["faith"])
+        selected_ref = random.choice(theme_data["verses"])
         
         # Fetch the verse in user's preferred translation
         try:
@@ -225,7 +321,8 @@ Always:
             if verse_data and verse_data.get("text"):
                 return {
                     "verse_reference": verse_data.get("reference", selected_ref),
-                    "verse_text": verse_data.get("text")
+                    "verse_text": verse_data.get("text"),
+                    "explanation": theme_data["explanations"].get(selected_ref, "i thought this verse would encourage you in this situation.")
                 }
         except Exception as e:
             print(f"Error fetching verse {selected_ref} in {translation}: {e}")
@@ -233,75 +330,68 @@ Always:
         return None
     
     def _should_include_verse(self, user_message: str, context: str) -> bool:
-        """Determine if we should include a verse or just listen first"""
-        # Don't include verses on very first interactions or surface-level shares
-        if not context or len(context.strip()) < 50:
-            return False
-            
-        # Look for indicators that they've shared enough for meaningful verse support
+        """Determine if we should include a verse - be generous with verse sharing"""
+        # Always include verses after the first exchange or if they share any meaningful content
+        
+        # Look for any emotional, spiritual, or personal sharing indicators
         indicators_for_verse = [
             "feel", "feeling", "emotion", "heart", "soul", "pray", "prayer", 
             "God", "faith", "believe", "trust", "hope", "peace", "strength",
-            "been struggling with", "going through", "dealing with", "working through"
+            "struggling", "going through", "dealing with", "working through",
+            "stressed", "worry", "worried", "anxious", "sad", "lonely", "alone",
+            "afraid", "scared", "angry", "frustrated", "tired", "overwhelmed",
+            "help", "need", "want", "wish", "difficult", "hard", "tough",
+            "family", "work", "relationship", "life", "future", "past"
         ]
         
         message_lower = user_message.lower()
-        context_lower = context.lower() if context else ""
         
-        # Check if they've shared deeper context in current message or previous context
-        deep_sharing_indicators = sum(1 for indicator in indicators_for_verse if indicator in message_lower or indicator in context_lower)
+        # Include verse if they share ANY meaningful content (just 1+ indicators)
+        sharing_indicators = sum(1 for indicator in indicators_for_verse if indicator in message_lower)
         
-        # Include verse if they've shared meaningful context (3+ indicators)
-        return deep_sharing_indicators >= 3
+        # Be much more generous - include verse with just 1 indicator or if message is longer than 20 chars
+        return sharing_indicators >= 1 or len(user_message.strip()) > 20
     
     def _generate_follow_up_question(self, user_message: str) -> str:
-        """Generate a thoughtful follow-up question for deeper reflection"""
+        """Generate a brief follow-up question - less frequently and lighter"""
         lower = user_message.lower()
         
-        # Empathetic, context-seeking questions based on what they shared
+        # Only generate follow-up questions 40% of the time to reduce frequency
+        if random.random() > 0.4:
+            return None
+        
+        # Simpler, less probing follow-up questions
         if any(word in lower for word in ["stressed", "stress", "overwhelmed", "pressure"]):
             questions = [
-                "what specifically is creating the most stress for you right now?",
-                "when did you first start feeling this overwhelm?",
-                "what does the stress feel like in your body and heart?",
-                "what would help you feel most supported in this?"
+                "what would bring you peace in this situation?",
+                "how can i pray for you about this stress?"
             ]
         elif any(word in lower for word in ["sad", "down", "depressed", "heavy"]):
             questions = [
-                "what's been weighing heaviest on your heart?",
-                "when did you first start feeling this way?",
-                "what does this sadness feel like for you?",
-                "who or what usually brings you comfort when you feel like this?"
+                "what brings you comfort when you feel this way?",
+                "how can i support you through this?"
             ]
         elif any(word in lower for word in ["worried", "worry", "anxious", "anxiety", "afraid"]):
             questions = [
-                "what thoughts keep running through your mind?",
-                "what are you most afraid might happen?",
-                "when do you notice the worry is strongest?",
-                "what helps quiet your mind when anxiety rises?"
+                "what helps you find peace when worry comes?",
+                "would you like me to pray about this with you?"
             ]
         elif any(word in lower for word in ["angry", "frustrated", "mad", "upset"]):
             questions = [
-                "what happened that stirred up these feelings?",
-                "what's underneath the anger - hurt, disappointment, fear?",
-                "how long have you been carrying this frustration?",
-                "what would it feel like to release some of this anger?"
+                "what would help you find peace in this situation?",
+                "how can i support you through this frustration?"
             ]
         elif any(word in lower for word in ["lonely", "alone", "isolated", "disconnected"]):
             questions = [
-                "what's been making you feel most alone lately?",
-                "when do you feel the loneliness most strongly?",
-                "what kind of connection are you longing for?",
-                "who in your life usually helps you feel less alone?"
+                "what kind of connection would mean most to you?",
+                "how can i encourage you in this loneliness?"
             ]
         else:
-            # General caring follow-up questions
+            # Lighter, more supportive follow-up questions
             questions = [
-                "tell me more about what's going on in your heart.",
-                "what's been on your mind lately?",
-                "how are you really doing with all of this?",
-                "what would help you feel most heard right now?",
-                "what part of this feels most important to talk through?"
+                "how can i best support you in this?",
+                "what would be most helpful for you right now?",
+                "is there anything specific you'd like to talk through?"
             ]
         
         return random.choice(questions)
