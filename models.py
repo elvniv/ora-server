@@ -10,6 +10,7 @@ class ChatMessage(BaseModel):
     spiritual_goal: Optional[str] = Field(None, max_length=200)
     context: Optional[List[Dict[str, str]]] = None
     preferred_translation: Optional[str] = Field('niv', max_length=10)
+    conversation_history: Optional[List[Dict[str, str]]] = None  # Track conversation exchanges
 
 
 class ChatResponse(BaseModel):

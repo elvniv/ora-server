@@ -89,6 +89,48 @@ async def get_verse_context(request: VerseRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/verse/explain")
+async def explain_verse_context(request: dict):
+    """AI-powered verse context explanation"""
+    try:
+        verse_reference = request.get('verse_reference')
+        verse_text = request.get('verse_text')
+        user_question = request.get('user_question', '')
+        
+        if not verse_reference or not verse_text:
+            raise HTTPException(status_code=400, detail="Verse reference and text are required")
+        
+        # Create a context-focused prompt for the AI
+        explanation_prompt = f"""
+        As a biblical scholar and pastor, please explain the context and meaning of this verse:
+        
+        Verse: {verse_reference}
+        Text: "{verse_text}"
+        
+        {f"User's specific question: {user_question}" if user_question else ""}
+        
+        Please provide:
+        1. Historical and cultural context
+        2. What this verse means in everyday language
+        3. How it applies to modern life
+        4. Any important theological insights
+        
+        Keep the explanation clear, practical, and encouraging. Avoid overly academic language.
+        """
+        
+        # Use the AI service to generate the explanation
+        response = await ai_service.generate_contextual_explanation(explanation_prompt)
+        
+        return {
+            "verse_reference": verse_reference,
+            "verse_text": verse_text,
+            "explanation": response,
+            "success": True
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/search/verses")
 async def search_verses(request: SearchVersesRequest):
     """Search for verses by topic or keyword"""

@@ -25,46 +25,66 @@ class SpiritualAIService:
     
     def _create_system_prompt(self) -> str:
         """Create the system prompt for AI interactions"""
-        return """You are ORA, a compassionate spiritual companion who meets people where they are.
+        return """You are ORA, a compassionate spiritual companion who meets people where they are - like a caring pastor or trusted friend.
 
-CRITICAL: Match their energy and input length
-- If they write 1-2 words: Respond with 1-2 sentences, gentle and brief
-- If they write a few sentences: Match with similar length, warm and supportive  
-- If they write paragraphs: Respond with fuller thoughts, deeper engagement
-- Mirror their emotional energy - if quiet/low, be gentle; if expressive, be more engaged
+CRITICAL RULE #1: MATCH THEIR LENGTH EXACTLY
+- If they write 1-3 words → You respond with MAX 1 short sentence (5-10 words)
+- If they write 1 sentence → You respond with 1-2 short sentences  
+- If they write 2-3 sentences → You match with 2-3 sentences
+- If they write a paragraph → You can write a full paragraph
+- NEVER overwhelm someone who writes briefly with long responses
 
 Response Style:
 - ALWAYS acknowledge their feelings with empathy first
-- Match their communication style and energy level
-- Provide spiritual insight appropriate to their sharing depth
+- Match their communication style and energy level PRECISELY
+- Act like a caring pastor or good friend - but keep questions SHORT if they're being brief
 - Keep responses warm, conversational, and supportive
 - Never use emojis in your responses
+- Use lowercase for a gentle, non-intimidating tone
 
-Response Pattern:
-1. Acknowledge their sharing (match their energy level)
-2. Express empathy (brief for short messages, fuller for longer ones)
-3. Offer spiritual perspective appropriate to their sharing depth
-4. Ask MAX 1-2 follow-ups total before providing verses
+Response Pattern Based on Message Length:
+FOR VERY SHORT MESSAGES (1-5 words):
+- Respond with: acknowledgment + 1 brief question
+- Example: "i hear you. what's heaviest right now?"
+
+FOR SHORT MESSAGES (1 sentence):
+- Respond with: empathy + 1-2 short follow-up questions
+- Keep total response under 20 words
+
+FOR MEDIUM MESSAGES (2-3 sentences):
+- Respond with: acknowledgment + empathy + 2 questions
+- Match their sentence count
+
+FOR LONG MESSAGES (paragraph+):
+- Full engagement with deeper questions and reflection
+- Can ask 2-3 thoughtful questions
+
+IMPORTANT: Only offer verses after 3-4 exchanges, and keep verse explanations brief if they're being brief
 
 Examples by Length:
-Short input - User: "stressed"
-You: "i hear that stress. you're not carrying it alone."
+Very short (1-3 words) - User: "stressed"
+You: "i hear you. what's heaviest?"
 
-Medium input - User: "I'm really stressed about work lately"  
-You: "i'm sorry work has been weighing on you. that kind of pressure can feel overwhelming. remember there's peace available even in busy seasons."
+Short (1 sentence) - User: "I'm really stressed about work lately"  
+You: "work stress is so heavy. what part feels hardest?"
 
-Long input - User: "I've been so stressed about work lately. My boss keeps piling on more projects and I feel like I can't keep up. I'm worried I'm going to disappoint everyone and maybe even lose my job. It's affecting my sleep and I just feel anxious all the time."
-You: "i can really hear how overwhelmed you're feeling right now. work pressure like that - with the fear of disappointing people and job security concerns - that's so much to carry. it makes complete sense that it's affecting your sleep and creating anxiety. you don't have to bear this weight alone. even when everything feels uncertain, there's a peace that can anchor you through these storms."
+Medium (2-3 sentences) - User: "I'm stressed about work. My boss keeps adding projects. I can't keep up."
+You: "that sounds overwhelming. how long has this been building? is your boss aware of your workload?"
+
+Long (paragraph) - User: "I've been so stressed about work lately. My boss keeps piling on more projects and I feel like I can't keep up. I'm worried I'm going to disappoint everyone and maybe even lose my job. It's affecting my sleep and I just feel anxious all the time."
+You: "i can really hear how overwhelmed you're feeling right now. work pressure like that - with the fear of disappointing people and job security concerns - that's so much to carry. it makes complete sense that it's affecting your sleep and creating anxiety. how long have you been feeling this weight? and is your boss aware of how much you're juggling?"
 
 Verse Recommendations:
-- After 1-2 exchanges, recommend a relevant verse
+- Only after 3-4 meaningful exchanges where you've truly understood their situation
 - ALWAYS explain WHY you chose that specific verse for their situation
 - Connect the verse directly to what they've shared
+- Make sure you've asked enough questions to understand the depth and context first
 
 Conversation Flow:
-- First response: Match their energy + acknowledge + empathize
-- Second response: Gentle wisdom + possible follow-up  
-- Third response: Verse + explanation of why it fits their situation
+- First response: Match their energy + acknowledge + ask 1-2 understanding questions
+- Second response: Deeper empathy + ask about context/weight of situation
+- Third response: More understanding questions + gentle wisdom
+- Fourth response: Verse + explanation of why it fits their specific situation
 
 Never:
 - Use emojis or special characters
@@ -84,14 +104,25 @@ Always:
             
             # Analyze user input to match energy and length
             input_analysis = self._analyze_user_input(message.message)
+            word_count = len(message.message.strip().split())
             context += f"\nUser input analysis: {input_analysis}\n"
+            context += f"\nCRITICAL: User wrote {word_count} words. You MUST match this length!\n"
+            
+            # Track conversation depth
+            exchange_count = self._get_exchange_count(message)
+            context += f"\nConversation exchange count: {exchange_count}\n"
+            context += f"\nIMPORTANT: This is exchange #{exchange_count}. Only provide verses after 3-4 exchanges of meaningful dialogue.\n"
+            
+            # Add strict length enforcement
+            if word_count <= 5:
+                context += f"\nSTRICT RULE: Your response must be UNDER {word_count * 3} words total. Be extremely brief.\n"
             
             # Try AI services in order of preference
             response_text, verse_rec = await self._get_ai_response(message, context)
             
-            # Only provide verses after meaningful conversation, not immediately
-            # Check if this is a first-time mention or needs more context
-            should_include_verse = self._should_include_verse(message.message, context)
+            # Only provide verses after 3-4 exchanges of meaningful conversation
+            # This ensures we understand their situation better first
+            should_include_verse = exchange_count >= 3 and self._should_include_verse(message.message, context)
             if should_include_verse and not verse_rec:
                 verse_rec = await self._get_verse_recommendation(
                     message.message, 
@@ -99,14 +130,14 @@ Always:
                     message.preferred_translation or 'niv'
                 )
             
-            # Get additional related verses
-            additional_verses = await self._get_additional_verses(message.message, verse_rec)
+            # Only get additional verses if we're including a primary verse
+            additional_verses = await self._get_additional_verses(message.message, verse_rec) if verse_rec else None
             
-            # Generate additional response elements
-            follow_up = self._generate_follow_up_question(message.message)
+            # Generate follow-up questions more frequently in early exchanges
+            follow_up = self._generate_contextual_follow_up(message.message, exchange_count)
             quick_replies = self._generate_quick_replies(message.message)
-            journal_prompts = self._generate_journal_prompts(message.message, verse_rec)
-            reflection_prompts = self._generate_reflection_prompts(message.message, verse_rec)
+            journal_prompts = self._generate_journal_prompts(message.message, verse_rec) if verse_rec else None
+            reflection_prompts = self._generate_reflection_prompts(message.message, verse_rec) if verse_rec else None
             
             return ChatResponse(
                 response=response_text,
@@ -130,24 +161,34 @@ Always:
             context += f"Spiritual goal: {message.spiritual_goal}\n"
         return context
     
+    def _get_exchange_count(self, message: ChatMessage) -> int:
+        """Track how many exchanges have happened in conversation"""
+        # Check if conversation_history is provided
+        if hasattr(message, 'conversation_history') and message.conversation_history:
+            # Count user messages in history
+            return len([msg for msg in message.conversation_history if msg.get('role') == 'user']) + 1
+        # Default to 1 for first exchange
+        return 1
+    
     def _analyze_user_input(self, user_message: str) -> str:
         """Analyze user input length and energy to guide response matching"""
         message_length = len(user_message.strip())
         word_count = len(user_message.strip().split())
+        sentence_count = len([s for s in user_message.split('.') if s.strip()])
         
-        # Analyze length category
+        # Analyze length category - BE VERY STRICT
         if word_count <= 3:
             length_category = "very short (1-3 words)"
-            response_guidance = "Respond with 1-2 brief, gentle sentences"
+            response_guidance = "MAXIMUM 10 words total. One short sentence only. Example: 'i hear you. what's heaviest?'"
         elif word_count <= 10:
             length_category = "short (4-10 words)"
-            response_guidance = "Respond with 2-3 supportive sentences"
+            response_guidance = "MAXIMUM 15-20 words. 1-2 very short sentences."
         elif word_count <= 30:
             length_category = "medium (11-30 words)"
-            response_guidance = "Respond with 3-4 sentences, matching their depth"
+            response_guidance = f"Match their {sentence_count} sentences. Keep response under {word_count + 10} words."
         else:
             length_category = "long (30+ words)"
-            response_guidance = "Respond with fuller engagement, deeper thoughts"
+            response_guidance = "Can engage fully with paragraph-length response"
         
         # Analyze emotional energy
         energy_indicators = {
@@ -352,46 +393,97 @@ Always:
         # Be much more generous - include verse with just 1 indicator or if message is longer than 20 chars
         return sharing_indicators >= 1 or len(user_message.strip()) > 20
     
-    def _generate_follow_up_question(self, user_message: str) -> str:
-        """Generate a brief follow-up question - less frequently and lighter"""
+    def _generate_contextual_follow_up(self, user_message: str, exchange_count: int) -> str:
+        """Generate thoughtful follow-up questions based on exchange count and message length"""
         lower = user_message.lower()
+        word_count = len(user_message.strip().split())
         
-        # Only generate follow-up questions 40% of the time to reduce frequency
-        if random.random() > 0.4:
-            return None
+        # Always ask follow-up questions in early exchanges (1-3)
+        # Reduce frequency after that
+        if exchange_count <= 2:
+            # Always ask follow-ups early to understand better
+            pass
+        elif exchange_count == 3:
+            # 70% chance on third exchange
+            if random.random() > 0.7:
+                return None
+        else:
+            # 30% chance after third exchange
+            if random.random() > 0.3:
+                return None
         
-        # Simpler, less probing follow-up questions
-        if any(word in lower for word in ["stressed", "stress", "overwhelmed", "pressure"]):
+        # Adjust question length based on user's message length
+        if word_count <= 5:
+            # VERY SHORT questions for brief messages
+            if exchange_count == 1:
+                if any(word in lower for word in ["stressed", "stress", "overwhelmed"]):
+                    questions = ["what's heaviest?", "how long?", "work or home?"]
+                elif any(word in lower for word in ["sad", "down", "depressed"]):
+                    questions = ["what happened?", "how long?", "want to share?"]
+                elif any(word in lower for word in ["worried", "worry", "anxious"]):
+                    questions = ["about what?", "biggest fear?", "how long?"]
+                elif any(word in lower for word in ["angry", "mad", "frustrated"]):
+                    questions = ["at who?", "what happened?", "how long?"]
+                else:
+                    questions = ["tell me more?", "what's hardest?", "how long?"]
+            else:
+                questions = ["how can i help?", "what do you need?", "feeling better?"]
+            return random.choice(questions)
+        
+        # Regular length questions for longer messages
+        if exchange_count == 1:
+            # First exchange - understand the situation better
+            if any(word in lower for word in ["stressed", "stress", "overwhelmed", "pressure"]):
+                questions = [
+                    "what's been weighing on you most heavily?",
+                    "how long have you been carrying this stress?",
+                    "is this something new or has it been building for a while?"
+                ]
+            elif any(word in lower for word in ["sad", "down", "depressed", "heavy"]):
+                questions = [
+                    "what's making your heart feel heavy right now?",
+                    "has something specific happened, or is it more of a season you're in?",
+                    "how long have you been feeling this way?"
+                ]
+            elif any(word in lower for word in ["worried", "worry", "anxious", "anxiety", "afraid"]):
+                questions = [
+                    "what specific worries are keeping you up at night?",
+                    "is there one main thing you're anxious about, or several things?",
+                    "how is this anxiety affecting your daily life?"
+                ]
+            elif any(word in lower for word in ["angry", "frustrated", "mad", "upset"]):
+                questions = [
+                    "what triggered these feelings for you?",
+                    "is this frustration with a situation or a person?",
+                    "how long have you been holding onto this anger?"
+                ]
+            elif any(word in lower for word in ["lonely", "alone", "isolated", "disconnected"]):
+                questions = [
+                    "what's making you feel so alone right now?",
+                    "has something changed in your relationships recently?",
+                    "how long have you been feeling disconnected?"
+                ]
+            else:
+                questions = [
+                    "tell me more about what's on your heart?",
+                    "what's really weighing on you right now?",
+                    "help me understand what you're going through?"
+                ]
+        elif exchange_count == 2:
+            # Second exchange - dig deeper into the weight and impact
             questions = [
-                "what would bring you peace in this situation?",
-                "how can i pray for you about this stress?"
-            ]
-        elif any(word in lower for word in ["sad", "down", "depressed", "heavy"]):
-            questions = [
-                "what brings you comfort when you feel this way?",
-                "how can i support you through this?"
-            ]
-        elif any(word in lower for word in ["worried", "worry", "anxious", "anxiety", "afraid"]):
-            questions = [
-                "what helps you find peace when worry comes?",
-                "would you like me to pray about this with you?"
-            ]
-        elif any(word in lower for word in ["angry", "frustrated", "mad", "upset"]):
-            questions = [
-                "what would help you find peace in this situation?",
-                "how can i support you through this frustration?"
-            ]
-        elif any(word in lower for word in ["lonely", "alone", "isolated", "disconnected"]):
-            questions = [
-                "what kind of connection would mean most to you?",
-                "how can i encourage you in this loneliness?"
+                "how is this affecting the other areas of your life?",
+                "what does this mean for you personally?",
+                "who else knows what you're going through?",
+                "what's the hardest part about this for you?",
+                "what would need to change for you to feel some relief?"
             ]
         else:
-            # Lighter, more supportive follow-up questions
+            # Third+ exchange - more supportive, less probing
             questions = [
-                "how can i best support you in this?",
-                "what would be most helpful for you right now?",
-                "is there anything specific you'd like to talk through?"
+                "how can i best support you through this?",
+                "what would bring you the most comfort right now?",
+                "what do you need most in this moment?"
             ]
         
         return random.choice(questions)
@@ -472,5 +564,61 @@ Always:
         ]
         
         return random.sample(base_prompts, min(3, len(base_prompts)))
+    
+    async def generate_contextual_explanation(self, explanation_prompt: str) -> str:
+        """Generate AI-powered contextual explanation for verses"""
+        try:
+            # Try AI services in order of preference
+            if openai_client and settings.has_openai_key:
+                try:
+                    response = openai_client.chat.completions.create(
+                        model=settings.OPENAI_MODEL,
+                        messages=[
+                            {"role": "system", "content": "You are a wise, compassionate biblical scholar and pastor who explains Scripture in practical, encouraging ways that connect to everyday life."},
+                            {"role": "user", "content": explanation_prompt}
+                        ],
+                        temperature=0.7,
+                        max_tokens=800
+                    )
+                    return response.choices[0].message.content
+                except Exception as e:
+                    print(f"OpenAI error: {e}")
+                    # Fall back to Claude if available
+                    if claude_client and settings.has_anthropic_key:
+                        try:
+                            response = claude_client.messages.create(
+                                model=settings.CLAUDE_MODEL,
+                                max_tokens=800,
+                                temperature=0.7,
+                                system="You are a wise, compassionate biblical scholar and pastor who explains Scripture in practical, encouraging ways that connect to everyday life.",
+                                messages=[{"role": "user", "content": explanation_prompt}]
+                            )
+                            return response.content[0].text
+                        except Exception as e2:
+                            print(f"Claude error: {e2}")
+                            raise Exception("Both AI services failed")
+                    raise e
+            
+            # Try Claude if OpenAI not available
+            if claude_client and settings.has_anthropic_key:
+                try:
+                    response = claude_client.messages.create(
+                        model=settings.CLAUDE_MODEL,
+                        max_tokens=800,
+                        temperature=0.7,
+                        system="You are a wise, compassionate biblical scholar and pastor who explains Scripture in practical, encouraging ways that connect to everyday life.",
+                        messages=[{"role": "user", "content": explanation_prompt}]
+                    )
+                    return response.content[0].text
+                except Exception as e:
+                    print(f"Claude error: {e}")
+                    raise e
+            
+            # If no AI services are available, raise error
+            raise Exception("No AI services configured")
+            
+        except Exception as e:
+            print(f"Error generating contextual explanation: {e}")
+            return "I'm having trouble explaining this verse right now. Please try again in a moment."
     
     # Removed fallback response - we want real AI responses only
