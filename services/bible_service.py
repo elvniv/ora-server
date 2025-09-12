@@ -8,7 +8,7 @@ import json
 settings = get_settings()
 
 
-class KJVBibleService:
+class BibleService:
     """Service for fetching and searching Bible verses.
 
     Primary source: jsDelivr-hosted Bible API repo (public-domain versions).

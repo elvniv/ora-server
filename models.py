@@ -20,6 +20,7 @@ class ChatResponse(BaseModel):
     additional_verses: Optional[List[Dict[str, Any]]] = None
     follow_up_question: Optional[str] = None
     quick_replies: Optional[List[str]] = None
+    alternative_actions: Optional[List[Dict[str, str]]] = None  # {"type": "prayer", "label": "Get a prayer"}
     journal_prompts: Optional[List[str]] = None
     reflection_prompts: Optional[List[str]] = None
 
